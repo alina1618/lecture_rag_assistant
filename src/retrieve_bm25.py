@@ -7,7 +7,7 @@ from rank_bm25 import BM25Okapi
 
 CHUNKS_FILE = Path("data/processed/chunks.jsonl")
 TOP_K = 5        # how many chunks to return
-STEM_LENGTH = 5  # 0 = off; e.g. 6 keeps only the first 6 letters of each word
+STEM_LENGTH = 6  
 
 
 def load_chunks(path: Path) -> list[dict]:
@@ -15,21 +15,21 @@ def load_chunks(path: Path) -> list[dict]:
         return [json.loads(line) for line in f]
 
 
-def tokenize(text: str) -> list[str]:
+def tokenize(text: str, stem_length: int = STEM_LENGTH) -> list[str]:
     words = re.findall(r"\w+", text.lower())
-    if STEM_LENGTH > 0:
-        words = [word[:STEM_LENGTH] for word in words]
+    if stem_length > 0:
+        words = [word[:stem_length] for word in words]
     return words
 
-
 class BM25Retriever:
-    def __init__(self, chunks: list[dict]):
+    def __init__(self, chunks: list[dict], stem_length: int = STEM_LENGTH):
         self.chunks = chunks
-        tokenized_chunks = [tokenize(chunk["text"]) for chunk in chunks]
+        self.stem_length = stem_length
+        tokenized_chunks = [tokenize(chunk["text"], stem_length) for chunk in chunks]
         self.bm25 = BM25Okapi(tokenized_chunks)
-
+    
     def search(self, query: str, k: int = TOP_K) -> list[dict]:
-        scores = self.bm25.get_scores(tokenize(query))
+        scores = self.bm25.get_scores(tokenize(query, self.stem_length))
         best_ids = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
         return [{**self.chunks[i], "score": float(scores[i])} for i in best_ids]
 
